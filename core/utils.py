@@ -3,36 +3,16 @@ import random
 import colorsys
 import numpy as np
 import tensorflow as tf
-from core.config import cfg
 
-def load_freeze_layer(model='yolov4', tiny=False):
-    if tiny:
-        if model == 'yolov3':
-            freeze_layouts = ['conv2d_9', 'conv2d_12']
-        else:
-            freeze_layouts = ['conv2d_17', 'conv2d_20']
-    else:
-        if model == 'yolov3':
-            freeze_layouts = ['conv2d_58', 'conv2d_66', 'conv2d_74']
-        else:
-            freeze_layouts = ['conv2d_93', 'conv2d_101', 'conv2d_109']
+def load_freeze_layer():
+    freeze_layouts = ['conv2d_93', 'conv2d_101', 'conv2d_109']
+
     return freeze_layouts
 
-def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
-    if is_tiny:
-        if model_name == 'yolov3':
-            layer_size = 13
-            output_pos = [9, 12]
-        else:
-            layer_size = 21
-            output_pos = [17, 20]
-    else:
-        if model_name == 'yolov3':
-            layer_size = 75
-            output_pos = [58, 66, 74]
-        else:
-            layer_size = 110
-            output_pos = [93, 101, 109]
+def load_weights(model, weights_file):
+    layer_size = 110
+    output_pos = [93, 101, 109]
+
     wf = open(weights_file, 'rb')
     major, minor, revision, seen, _ = np.fromfile(wf, dtype=np.int32, count=5)
 
@@ -68,42 +48,30 @@ def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
         else:
             conv_layer.set_weights([conv_weights, conv_bias])
 
-    # assert len(wf.read()) == 0, 'failed to read all data'
     wf.close()
 
 
-def read_class_names(class_file_name):
-    names = {}
-    with open(class_file_name, 'r') as data:
-        for ID, name in enumerate(data):
-            names[ID] = name.strip('\n')
-    return names
+def load_config(anchors, classes):
+    ANCHORS = get_anchors(anchors)
+    NUM_CLASS = len(read_class_names(classes))
 
-def load_config(FLAGS):
-    if FLAGS.tiny:
-        STRIDES = np.array(cfg.YOLO.STRIDES_TINY)
-        ANCHORS = get_anchors(cfg.YOLO.ANCHORS_TINY, FLAGS.tiny)
-        XYSCALE = cfg.YOLO.XYSCALE_TINY if FLAGS.model == 'yolov4' else [1, 1]
-    else:
-        STRIDES = np.array(cfg.YOLO.STRIDES)
-        if FLAGS.model == 'yolov4':
-            ANCHORS = get_anchors(cfg.YOLO.ANCHORS, FLAGS.tiny)
-        elif FLAGS.model == 'yolov3':
-            ANCHORS = get_anchors(cfg.YOLO.ANCHORS_V3, FLAGS.tiny)
-        XYSCALE = cfg.YOLO.XYSCALE if FLAGS.model == 'yolov4' else [1, 1, 1]
-    NUM_CLASS = len(read_class_names(cfg.YOLO.CLASSES))
+    return ANCHORS, NUM_CLASS
 
-    return STRIDES, ANCHORS, NUM_CLASS, XYSCALE
+def get_anchors(anchors_path):
+    with open(anchors_path, 'r') as f:
+        anchors = f.readline()
+    anchors = [float(x) for x in anchors.split(',')]
 
-def get_anchors(anchors_path, tiny=False):
-    anchors = np.array(anchors_path)
-    if tiny:
-        return anchors.reshape(2, 3, 2)
-    else:
-        return anchors.reshape(3, 3, 2)
+    return np.array(anchors).reshape(3, 3, 2)
+
+def read_class_names(classes_path):
+    with open(classes_path, 'r', encoding='utf-8') as f:
+        class_names = f.readlines()
+    class_names = [c.strip() for c in class_names]
+
+    return class_names
 
 def image_preprocess(image, target_size, gt_boxes=None):
-
     ih, iw    = target_size
     h,  w, _  = image.shape
 
@@ -124,7 +92,8 @@ def image_preprocess(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
         return image_paded, gt_boxes
 
-def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True):
+def draw_bbox(image, bboxes, classes_path, show_label=True):
+    classes = read_class_names(classes_path)
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
     hsv_tuples = [(1.0 * x / num_classes, 1., 1.) for x in range(num_classes)]
