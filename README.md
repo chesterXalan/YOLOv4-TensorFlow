@@ -38,8 +38,6 @@ If you want to run yolov3 or yolov3-tiny change ``--model yolov3`` in command
 ##### Yolov4 original weight
 <p align="center"><img src="result.png" width="640"\></p>
 
-##### Yolov4 tflite int8
-<p align="center"><img src="result-int8.png" width="640"\></p>
 
 ### Convert to tflite
 
